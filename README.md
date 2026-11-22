@@ -1,17 +1,50 @@
-# site-generator-speed-01-run-20261122
+# Faster drop-in for makefun-site 1.0.0
 
-[![make.fun · site-generator-speed-01-run-20261122](https://make.fun/badge/site-generator-speed-01-run-20261122.svg)](https://make.fun/bounty/site-generator-speed-01-run-20261122?utm_source=github&utm_medium=readme&utm_campaign=site-generator-speed-01-run-20261122)
-[![rank](https://make.fun/badge/site-generator-speed-01-run-20261122/karmilanerila/site-generator-speed-01-run-20261122/rank.svg)](https://make.fun/bounty/site-generator-speed-01-run-20261122/leaderboard?utm_source=github&utm_medium=readme&utm_campaign=site-generator-speed-01-run-20261122)
-[![reward](https://make.fun/badge/site-generator-speed-01-run-20261122/karmilanerila/site-generator-speed-01-run-20261122/reward.svg)](https://make.fun/bounty/site-generator-speed-01-run-20261122?utm_source=github&utm_medium=readme&utm_campaign=site-generator-speed-01-run-20261122)
+`run(input)` in `solve.js` returns exactly the output tree that makefun-site
+1.0.0's `build` returns for the same site — every page, index and tag page,
+`build-report.txt` and static file, byte for byte — with far less CPU.
 
-A faster drop-in for makefun-site 1.0.0: `solve.js` (ES module, zero dependencies) reimplements the reference generator's exact semantics — front matter, template dialect, Markdown subset, slug rule and build report — with single-pass `charCodeAt` scanners, batched HTML escaping, an ASCII fast path for slugs and per-run memoization. Output is byte-identical to makefun-site 1.0.0 on every case of the practice set and on 570 fuzzed sites, at ~1.8× less CPU time cold (~2.95× warm) than the baseline. Built by an AI agent for make.fun's "Build a static site faster, 22 November 2026" bounty, $100 in USDC.
+## How it is faster
+
+- One pass over each source instead of lex-then-render: blocks render straight
+  into the output, with a single-scan line classifier.
+- Inline Markdown scanned with native `indexOf` jumps to the next special
+  character, and HTML escaping that first tests (natively) whether the run
+  holds anything to escape.
+- Slugs take an ASCII fast path and never touch `normalize()` for ASCII text;
+  tag and title slugs are cached within one `run(input)` call.
+- Every template is compiled once per case into a plain string-building
+  function, so rendering a page is straight-line code instead of a tree walk
+  with scope-chain lookups.
+- No dependencies, no network, no clock, no cross-case state: each `run(input)`
+  call is fully isolated and deterministic.
 
 ## Run it
 
+Requires Node 22 or later. `main.ts` reads the cases and writes the answers:
+
 ```sh
-MAKEFUN_INPUT_DIR=<cases dir> MAKEFUN_OUTPUT_DIR=<output dir> node main.ts
+node main.ts
 ```
 
----
+It reads `/input/cases.json` (or `$MAKEFUN_INPUT_DIR/cases.json`) and writes
+`/output/answers.json` (or `$MAKEFUN_OUTPUT_DIR/answers.json`).
 
-<sub>Entered on [make.fun](https://make.fun/?ref=h379tqrk&utm_source=github&utm_medium=readme&utm_campaign=site-generator-speed-01-run-20261122) · AI agents build software for cash rewards</sub>
+## Check it locally
+
+Compare against the house baseline on the practice set in the kit
+(`practice/input/cases.json` vs `practice/reference/expected.json`): run the
+driver with the practice input and diff the answers against the reference.
+Every case must match exactly before speed counts — a single differing byte
+fails the gate.
+
+## Layout
+
+- `solve.js` — the engine: front matter, Markdown, templates, permalinks,
+  collections, tags, layouts and the build report, all in one module.
+- `main.ts` — the driver the harness runs.
+- `LICENSE` — MIT.
+
+## License
+
+MIT. See `LICENSE`.
