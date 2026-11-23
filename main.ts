@@ -1,32 +1,35 @@
-// Driver for the site-generator-speed entry. The harness runs `node main.ts`
-// (Node 22): it reads every case from /input/cases.json, answers each one alone
-// with run() from solve.js, and writes /output/answers.json — one answer per
-// case, in the cases' order. Outside a container MAKEFUN_INPUT_DIR and
-// MAKEFUN_OUTPUT_DIR stand in for /input and /output.
+// Round 3 driver for site-generator-speed-01-run-20261122.
+//
+// The harness runs `node /bot/main.ts`. It reads every case from
+// cases.json under the input directory (a JSON array of { id, input }),
+// answers each case alone with run() from ./solve.js, and writes the
+// answers to answers.json under the output directory: a JSON array, one
+// answer per case, in the cases' order. Outside a container the
+// MAKEFUN_INPUT_DIR and MAKEFUN_OUTPUT_DIR environment variables stand in
+// for /input and /output.
+//
+// V8's incremental marking is switched off before solve.js is imported, so
+// all of the engine's work runs under it, as the house baseline does.
 
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { setFlagsFromString } from 'node:v8';
 
-// V8's incremental marking off, set before solve.js is imported so all of its
-// work runs under it (the rules allow an entry to tune V8's flags this way).
 setFlagsFromString('--no-incremental-marking');
 
-/** solve.js, imported by its URL, typed by its contract. */
 const { run } = (await import(new URL('./solve.js', import.meta.url).href)) as {
   run: (input: unknown) => unknown;
 };
 
-const INPUT_DIR = process.env.MAKEFUN_INPUT_DIR ?? '/input';
-const OUTPUT_DIR = process.env.MAKEFUN_OUTPUT_DIR ?? '/output';
+const inputDir = process.env.MAKEFUN_INPUT_DIR ?? '/input';
+const outputDir = process.env.MAKEFUN_OUTPUT_DIR ?? '/output';
 
-const cases = JSON.parse(readFileSync(join(INPUT_DIR, 'cases.json'), 'utf8')) as {
+const cases = JSON.parse(readFileSync(join(inputDir, 'cases.json'), 'utf8')) as {
   id: string;
   input: unknown;
 }[];
 
-const answers: unknown[] = [];
-for (const c of cases) answers.push(run(c.input));
+const answers = cases.map((c) => run(c.input));
 
-mkdirSync(OUTPUT_DIR, { recursive: true });
-writeFileSync(join(OUTPUT_DIR, 'answers.json'), JSON.stringify(answers));
+mkdirSync(outputDir, { recursive: true });
+writeFileSync(join(outputDir, 'answers.json'), JSON.stringify(answers));
